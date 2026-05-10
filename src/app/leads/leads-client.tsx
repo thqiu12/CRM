@@ -172,7 +172,7 @@ export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
   const [createStatus, setCreateStatus] = React.useState<LeadStatus>("新线索");
   const [createError, setCreateError] = React.useState("");
 
-  const duplicateLead = React.useMemo(() => findByWechat(wechat), [findByWechat, wechat]);
+  const duplicateLead = React.useMemo(() => findByWechat(wechat.trim()), [findByWechat, wechat]);
 
   const resetCreate = React.useCallback(() => {
     setStudentName("");
@@ -196,8 +196,9 @@ export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
       setCreateError("微信号不能为空");
       return;
     }
-    if (duplicateLead) {
-      setCreateError(`微信号已存在：${duplicateLead.studentName}（${duplicateLead.id}）`);
+    const existing = findByWechat(w);
+    if (existing) {
+      setCreateError(`微信号已存在：${existing.studentName}（${existing.id}）`);
       return;
     }
     const now = new Date().toISOString();
