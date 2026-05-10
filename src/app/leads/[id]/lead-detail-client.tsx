@@ -49,7 +49,7 @@ function fmtJPY(amount: number) {
 
 export default function LeadDetailClient({ leadId }: { leadId: string }) {
   const { user } = useDemoAccess();
-  const { leads } = useDemoLeads(db.leads);
+  const { leads, upsertLead } = useDemoLeads(db.leads);
 
   const [lead, setLead] = React.useState<Lead | null>(() => leads.find((l) => l.id === leadId) ?? null);
   const hasAccess = React.useMemo(() => (lead ? canViewLead({ user }, lead) : false), [lead, user]);
@@ -140,17 +140,18 @@ export default function LeadDetailClient({ leadId }: { leadId: string }) {
             lead={lead}
             onCreate={(created) => {
               setFollowUps((prev) => [created, ...prev]);
-              setLead((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      status: created.statusChangeTo ?? prev.status,
-                      customerLevel: created.levelChangeTo ?? prev.customerLevel,
-                      nextFollowUpAt: created.nextFollowUpAt ?? prev.nextFollowUpAt,
-                      updatedAt: new Date().toISOString(),
-                    }
-                  : prev,
-              );
+              setLead((prev) => {
+                if (!prev) return prev;
+                const next = {
+                  ...prev,
+                  status: created.statusChangeTo ?? prev.status,
+                  customerLevel: created.levelChangeTo ?? prev.customerLevel,
+                  nextFollowUpAt: created.nextFollowUpAt ?? prev.nextFollowUpAt,
+                  updatedAt: new Date().toISOString(),
+                };
+                upsertLead(next);
+                return next;
+              });
             }}
           />
         </div>

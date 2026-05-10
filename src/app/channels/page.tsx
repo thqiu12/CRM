@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import dynamic from "next/dynamic";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { db } from "@/lib/mock-data";
 import { filterLeadsByAccess } from "@/lib/access";
 import { useDemoAccess } from "@/app/providers";
 import { useDemoLeads } from "@/lib/demo-leads";
+
+const RechartsBarChart = dynamic(() => import("@/components/charts/recharts-bar"), { ssr: false });
 
 function fmtJPY(amount: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(amount);
@@ -118,21 +120,7 @@ export default function ChannelsPage() {
             <CardDescription>Top 10 渠道（按线索数）</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={200}>
-              <BarChart data={chartData} margin={{ left: 0, right: 18, top: 10, bottom: 6 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid rgba(24,24,27,0.10)",
-                    boxShadow: "0 16px 40px -24px rgba(0,0,0,0.35)",
-                  }}
-                  formatter={(v) => [v, "线索数"]}
-                />
-                <Bar dataKey="value" fill="rgb(24 24 27)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <RechartsBarChart data={chartData} xKey="name" valueKey="value" tooltipLabel="线索数" />
           </CardContent>
         </Card>
 

@@ -34,6 +34,7 @@ export default function TasksPage() {
   const { leads } = useDemoLeads(db.leads);
   const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, leads), [leads, user]);
   const accessibleLeadIds = React.useMemo(() => new Set(accessibleLeads.map((l) => l.id)), [accessibleLeads]);
+  const accessibleLeadById = React.useMemo(() => new Map(accessibleLeads.map((l) => [l.id, l])), [accessibleLeads]);
 
   const scopedTasks = React.useMemo(() => {
     if (user.role === "销售顾问" || user.role === "教务" || user.role === "进学指导" || user.role === "财务") {
@@ -120,7 +121,7 @@ export default function TasksPage() {
         {filtered.map((t) => {
           const due = t.dueAt ? new Date(t.dueAt) : null;
           const overdue = due ? due.getTime() < DEMO_TODAY_START : false;
-          const lead = t.leadId ? db.leads.find((l) => l.id === t.leadId) : null;
+          const lead = t.leadId ? accessibleLeadById.get(t.leadId) : undefined;
           const assignee = db.users.find((u) => u.id === t.assigneeId);
           return (
             <Card key={t.id}>

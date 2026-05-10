@@ -270,6 +270,11 @@ export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
       const idxTrack = pickIndex(["targettrack", "方向", "申请方向", "赛道"]);
       const idxCountry = pickIndex(["locationcountry", "国家", "所在国家"]);
 
+      if (idxWechat === undefined) {
+        setImportError("缺少必需列：微信号（wechat/微信/微信号/wx）");
+        return;
+      }
+
       const now = new Date().toISOString();
       const campusByName = new Map(db.campuses.map((c) => [c.name, c.id] as const));
       const channelByName = new Map(db.channels.map((c) => [c.name, c.id] as const));

@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowRight, TrendingUp } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,9 @@ import { DEMO_NOW } from "@/lib/demo-clock";
 import { cn } from "@/lib/utils";
 import { useDemoAccess } from "@/app/providers";
 import { useDemoLeads } from "@/lib/demo-leads";
+import type { Lead } from "@/lib/types";
+
+const RechartsBarChart = dynamic(() => import("@/components/charts/recharts-bar"), { ssr: false });
 
 function fmtJPY(amount: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(amount);
@@ -26,6 +29,7 @@ export default function DashboardPage() {
 
   const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, leads), [leads, user]);
   const accessibleLeadIds = React.useMemo(() => new Set(accessibleLeads.map((l) => l.id)), [accessibleLeads]);
+  const accessibleLeadById = React.useMemo(() => new Map(accessibleLeads.map((l) => [l.id, l] as const)), [accessibleLeads]);
 
   const accessibleTasks = React.useMemo(() => {
     if (user.role === "销售顾问" || user.role === "教务" || user.role === "进学指导" || user.role === "财务") {
@@ -131,7 +135,7 @@ export default function DashboardPage() {
             <CardDescription>Top 10 渠道（按线索数降序）</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
-            <BarBlock data={channelData} />
+            <RechartsBarChart data={channelData} xKey="name" valueKey="value" tooltipLabel="数量" />
           </CardContent>
         </Card>
 
@@ -141,7 +145,7 @@ export default function DashboardPage() {
             <CardDescription>按报名记录归属校区</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
-            <BarBlock data={campusSignupData} />
+            <RechartsBarChart data={campusSignupData} xKey="name" valueKey="value" tooltipLabel="数量" />
           </CardContent>
         </Card>
 
@@ -151,21 +155,7 @@ export default function DashboardPage() {
             <CardDescription>阶段人数与环比转化（基于当前状态映射）</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={200}>
-              <BarChart data={funnel} margin={{ left: 0, right: 18, top: 6, bottom: 6 }}>
-                <XAxis dataKey="stage" tick={{ fontSize: 12 }} interval={0} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid rgba(24,24,27,0.10)",
-                    boxShadow: "0 16px 40px -24px rgba(0,0,0,0.35)",
-                  }}
-                  formatter={(v) => [v, "人数"]}
-                />
-                <Bar dataKey="count" fill="rgb(24 24 27)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <RechartsBarChart data={funnel} xKey="stage" valueKey="count" tooltipLabel="人数" margin={{ left: 0, right: 18, top: 6, bottom: 6 }} />
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
               {funnel.map((s, idx) => (
                 <div key={s.stage} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-900 dark:bg-black/40">
@@ -188,21 +178,18 @@ export default function DashboardPage() {
             <CardDescription>按实收金额累计（当前权限范围）</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={200}>
-              <BarChart data={consultantRanking} layout="vertical" margin={{ left: 6, right: 18, top: 6, bottom: 6 }}>
-                <XAxis type="number" tickFormatter={(v) => `${Math.round(Number(v) / 10000)}万`} />
-                <YAxis dataKey="name" type="category" width={96} tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid rgba(24,24,27,0.10)",
-                    boxShadow: "0 16px 40px -24px rgba(0,0,0,0.35)",
-                  }}
-                  formatter={(v) => [fmtJPY(Number(v)), "实收金额"]}
-                />
-                <Bar dataKey="value" fill="rgb(24 24 27)" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <RechartsBarChart
+              data={consultantRanking}
+              xKey="value"
+              valueKey="value"
+              tooltipLabel="实收金额"
+              layout="vertical"
+              yKey="name"
+              yWidth={96}
+              xTickFormatter={(v) => `${Math.round(Number(v) / 10000)}万`}
+              tooltipFormatter={(v) => fmtJPY(Number(v))}
+              margin={{ left: 6, right: 18, top: 6, bottom: 6 }}
+            />
           </CardContent>
         </Card>
       </div>
@@ -216,7 +203,7 @@ export default function DashboardPage() {
           <TrendingUp className="h-5 w-5 text-zinc-400" />
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2">
-          {pickHighlights({ leadIds: accessibleLeadIds, now: DEMO_NOW }).map((item) => (
+          {pickHighlights({ leadIds: accessibleLeadIds, leadById: accessibleLeadById, now: DEMO_NOW }).map((item) => (
             <Link
               key={item.id}
               href={item.href}
@@ -257,33 +244,13 @@ function KpiCard(props: { title: string; value: number | string; hint: string; t
   );
 }
 
-function BarBlock(props: { data: { name: string; value: number }[] }) {
-  return (
-    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={200}>
-      <BarChart data={props.data} margin={{ left: 0, right: 18, top: 10, bottom: 6 }}>
-        <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} />
-        <YAxis />
-        <Tooltip
-          contentStyle={{
-            borderRadius: 12,
-            border: "1px solid rgba(24,24,27,0.10)",
-            boxShadow: "0 16px 40px -24px rgba(0,0,0,0.35)",
-          }}
-          formatter={(v) => [v, "数量"]}
-        />
-        <Bar dataKey="value" fill="rgb(24 24 27)" radius={[8, 8, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-function pickHighlights(params: { leadIds: Set<string>; now: number }) {
+function pickHighlights(params: { leadIds: Set<string>; leadById: Map<string, Lead>; now: number }) {
   const items: { id: string; href: string; title: string; subtitle: string; badge: string; badgeClass: string; meta: string }[] = [];
 
   for (const t of db.tasks) {
     if (t.status !== "待处理") continue;
     if (t.leadId && !params.leadIds.has(t.leadId)) continue;
-    const lead = t.leadId ? db.leads.find((l) => l.id === t.leadId) : undefined;
+    const lead = t.leadId ? params.leadById.get(t.leadId) : undefined;
     const due = t.dueAt ? new Date(t.dueAt) : undefined;
     const overdue = due ? due.getTime() < params.now : false;
     items.push({

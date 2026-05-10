@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import dynamic from "next/dynamic";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { filterLeadsByAccess } from "@/lib/access";
 import { getFunnel } from "@/lib/metrics";
 import { useDemoAccess } from "@/app/providers";
 import { useDemoLeads } from "@/lib/demo-leads";
+
+const RechartsBarChart = dynamic(() => import("@/components/charts/recharts-bar"), { ssr: false });
 
 function daysBetween(a: string, b: string) {
   const da = new Date(a).getTime();
@@ -67,21 +69,7 @@ export default function FunnelPage() {
             <CardDescription>基于线索当前状态映射</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={200}>
-              <BarChart data={stages} margin={{ left: 0, right: 18, top: 10, bottom: 6 }}>
-                <XAxis dataKey="stage" tick={{ fontSize: 12 }} interval={0} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: "1px solid rgba(24,24,27,0.10)",
-                    boxShadow: "0 16px 40px -24px rgba(0,0,0,0.35)",
-                  }}
-                  formatter={(v) => [v, "人数"]}
-                />
-                <Bar dataKey="count" fill="rgb(24 24 27)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <RechartsBarChart data={stages} xKey="stage" valueKey="count" tooltipLabel="人数" />
           </CardContent>
         </Card>
 

@@ -6,6 +6,24 @@ import type { Lead } from "@/lib/types";
 
 const STORAGE_KEY = "crm-demo-leads-v1";
 
+function isLead(value: unknown): value is Lead {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  if (typeof v.id !== "string") return false;
+  if (typeof v.studentName !== "string") return false;
+  if (typeof v.status !== "string") return false;
+  if (typeof v.customerLevel !== "string") return false;
+  if (typeof v.channelId !== "string") return false;
+  if (typeof v.campusId !== "string") return false;
+  if (typeof v.ownerId !== "string") return false;
+  if (typeof v.targetTrack !== "string") return false;
+  if (typeof v.locationCountry !== "string") return false;
+  if (!Array.isArray(v.tagIds) || v.tagIds.some((x) => typeof x !== "string")) return false;
+  if (typeof v.createdAt !== "string") return false;
+  if (typeof v.updatedAt !== "string") return false;
+  return true;
+}
+
 export function normalizeWechat(value?: string) {
   return (value ?? "").trim().toLowerCase();
 }
@@ -17,7 +35,8 @@ export function loadLeadsFromStorage(fallback: Lead[]) {
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return fallback;
-    return parsed as Lead[];
+    if (!parsed.every(isLead)) return fallback;
+    return parsed;
   } catch {
     return fallback;
   }
@@ -63,4 +82,3 @@ export function useDemoLeads(fallback: Lead[]) {
 
   return { leads, replaceLeads, upsertLead, findByWechat };
 }
-
