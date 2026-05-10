@@ -14,6 +14,7 @@ import { DEMO_NOW, DEMO_TODAY_START } from "@/lib/demo-clock";
 import { cn } from "@/lib/utils";
 import { useDemoAccess } from "@/app/providers";
 import type { TaskType } from "@/lib/types";
+import { useDemoLeads } from "@/lib/demo-leads";
 
 const taskTypes: TaskType[] = [
   "今日待跟进",
@@ -30,7 +31,8 @@ const taskTypes: TaskType[] = [
 
 export default function TasksPage() {
   const { user } = useDemoAccess();
-  const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, db.leads), [user]);
+  const { leads } = useDemoLeads(db.leads);
+  const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, leads), [leads, user]);
   const accessibleLeadIds = React.useMemo(() => new Set(accessibleLeads.map((l) => l.id)), [accessibleLeads]);
 
   const scopedTasks = React.useMemo(() => {

@@ -10,6 +10,7 @@ import { db } from "@/lib/mock-data";
 import { filterLeadsByAccess } from "@/lib/access";
 import { getFunnel } from "@/lib/metrics";
 import { useDemoAccess } from "@/app/providers";
+import { useDemoLeads } from "@/lib/demo-leads";
 
 function daysBetween(a: string, b: string) {
   const da = new Date(a).getTime();
@@ -19,7 +20,8 @@ function daysBetween(a: string, b: string) {
 
 export default function FunnelPage() {
   const { user } = useDemoAccess();
-  const leads = React.useMemo(() => filterLeadsByAccess({ user }, db.leads), [user]);
+  const { leads: allLeads } = useDemoLeads(db.leads);
+  const leads = React.useMemo(() => filterLeadsByAccess({ user }, allLeads), [allLeads, user]);
   const stages = React.useMemo(() => getFunnel(leads), [leads]);
 
   const lost = React.useMemo(() => leads.filter((l) => l.status === "已流失"), [leads]);

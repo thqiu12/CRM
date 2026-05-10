@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { db } from "@/lib/mock-data";
 import { filterLeadsByAccess } from "@/lib/access";
 import { useDemoAccess } from "@/app/providers";
+import { useDemoLeads } from "@/lib/demo-leads";
 
 function fmtJPY(amount: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(amount);
@@ -33,8 +34,9 @@ const channelCostsJPY: Record<string, number> = {
 
 export default function ChannelsPage() {
   const { user } = useDemoAccess();
+  const { leads: allLeads } = useDemoLeads(db.leads);
 
-  const leads = React.useMemo(() => filterLeadsByAccess({ user }, db.leads), [user]);
+  const leads = React.useMemo(() => filterLeadsByAccess({ user }, allLeads), [allLeads, user]);
   const leadById = React.useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
   const enrollments = React.useMemo(() => db.enrollments.filter((e) => leadById.has(e.leadId)), [leadById]);
 

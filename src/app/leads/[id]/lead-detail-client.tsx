@@ -17,6 +17,7 @@ import { canViewLead } from "@/lib/access";
 import { DEMO_NOW } from "@/lib/demo-clock";
 import type { CustomerLevel, FollowUp, FollowUpMethod, Lead, LeadStatus } from "@/lib/types";
 import { useDemoAccess } from "@/app/providers";
+import { useDemoLeads } from "@/lib/demo-leads";
 
 const followUpMethods: FollowUpMethod[] = ["微信", "电话", "语音", "视频", "面谈"];
 const levels: CustomerLevel[] = ["A", "B", "C", "D"];
@@ -48,11 +49,10 @@ function fmtJPY(amount: number) {
 
 export default function LeadDetailClient({ leadId }: { leadId: string }) {
   const { user } = useDemoAccess();
+  const { leads } = useDemoLeads(db.leads);
 
-  const baseLead = React.useMemo(() => db.leads.find((l) => l.id === leadId), [leadId]);
-  const hasAccess = React.useMemo(() => (baseLead ? canViewLead({ user }, baseLead) : false), [baseLead, user]);
-
-  const [lead, setLead] = React.useState(baseLead ?? null);
+  const [lead, setLead] = React.useState<Lead | null>(() => leads.find((l) => l.id === leadId) ?? null);
+  const hasAccess = React.useMemo(() => (lead ? canViewLead({ user }, lead) : false), [lead, user]);
 
   const [followUps, setFollowUps] = React.useState(() => db.followUps.filter((f) => f.leadId === leadId));
 

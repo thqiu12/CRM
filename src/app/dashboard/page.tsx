@@ -14,6 +14,7 @@ import { getDashboardKpis, getFunnel, groupBy } from "@/lib/metrics";
 import { DEMO_NOW } from "@/lib/demo-clock";
 import { cn } from "@/lib/utils";
 import { useDemoAccess } from "@/app/providers";
+import { useDemoLeads } from "@/lib/demo-leads";
 
 function fmtJPY(amount: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(amount);
@@ -21,8 +22,9 @@ function fmtJPY(amount: number) {
 
 export default function DashboardPage() {
   const { user } = useDemoAccess();
+  const { leads } = useDemoLeads(db.leads);
 
-  const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, db.leads), [user]);
+  const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, leads), [leads, user]);
   const accessibleLeadIds = React.useMemo(() => new Set(accessibleLeads.map((l) => l.id)), [accessibleLeads]);
 
   const accessibleTasks = React.useMemo(() => {
@@ -31,12 +33,12 @@ export default function DashboardPage() {
     }
 
     if (user.role === "校区负责人") {
-      const campusLeadIds = new Set(db.leads.filter((l) => l.campusId === user.campusId).map((l) => l.id));
+      const campusLeadIds = new Set(leads.filter((l) => l.campusId === user.campusId).map((l) => l.id));
       return db.tasks.filter((t) => !t.leadId || campusLeadIds.has(t.leadId));
     }
 
     return db.tasks.filter((t) => !t.leadId || accessibleLeadIds.has(t.leadId));
-  }, [accessibleLeadIds, user]);
+  }, [accessibleLeadIds, leads, user]);
 
   const accessibleEnrollments = React.useMemo(
     () => db.enrollments.filter((e) => accessibleLeadIds.has(e.leadId)),
