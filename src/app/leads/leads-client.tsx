@@ -105,7 +105,7 @@ function mapById<T extends { id: string }>(items: T[]) {
 }
 
 export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
-  const { user } = useDemoAccess();
+  const { mode, user } = useDemoAccess();
   const router = useRouter();
   const { leads, replaceLeads, findByWechat } = useDemoLeads(db.leads);
 
@@ -203,7 +203,7 @@ export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
     }
     const now = new Date().toISOString();
     const created: Lead = {
-      id: `l-${crypto.randomUUID()}`,
+      id: crypto.randomUUID(),
       studentName: studentName.trim() || "未命名",
       wechat: w,
       phone: phone.trim() || undefined,
@@ -223,7 +223,7 @@ export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
       budget: undefined,
       channelId: createChannelId,
       campusId: createCampusId,
-      ownerId: createOwnerId,
+      ownerId: mode === "supabase" ? user.id : createOwnerId,
       customerLevel: createLevel,
       status: createStatus,
       tagIds: [],
@@ -313,14 +313,14 @@ export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
 
         const campusId = campusByName.get(campusName) ?? user.campusId ?? db.campuses[0]!.id;
         const channelId = channelByName.get(channelName) ?? db.channels[0]!.id;
-        const ownerId = userByName.get(ownerName) ?? user.id ?? db.users[0]!.id;
+        const ownerId = mode === "supabase" ? user.id : (userByName.get(ownerName) ?? user.id ?? db.users[0]!.id);
         const targetTrack = tracks.includes(trackRaw as TargetTrack) ? (trackRaw as TargetTrack) : "大学院";
         const locationCountry = countries.includes(countryRaw as Lead["locationCountry"])
           ? (countryRaw as Lead["locationCountry"])
           : "中国";
 
         const created: Lead = {
-          id: `l-${crypto.randomUUID()}`,
+          id: crypto.randomUUID(),
           studentName,
           wechat,
           phone,
@@ -484,20 +484,24 @@ export default function LeadsClient({ seedQuery }: { seedQuery: string }) {
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="grid gap-2">
                     <div className="text-sm font-medium">负责顾问</div>
-                    <Select value={createOwnerId} onValueChange={setCreateOwnerId}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {db.users
-                          .filter((u) => u.role === "销售顾问")
-                          .map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                    {mode === "demo" ? (
+                      <Select value={createOwnerId} onValueChange={setCreateOwnerId}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {db.users
+                            .filter((u) => u.role === "销售顾问")
+                            .map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value={user.name} disabled />
+                    )}
                   </div>
                   <div className="grid gap-2">
                     <div className="text-sm font-medium">客户等级</div>

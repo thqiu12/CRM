@@ -39,7 +39,7 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, setUserId } = useDemoAccess();
+  const { mode, user, setUserId, signOut } = useDemoAccess();
   const [q, setQ] = React.useState("");
 
   const onSubmit = (e: React.FormEvent) => {
@@ -47,6 +47,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const query = q.trim();
     router.push(query ? `/leads?query=${encodeURIComponent(query)}` : "/leads");
   };
+
+  const items = mode === "supabase" ? navItems.filter((x) => x.href !== "/settings/access") : navItems;
+
+  if (pathname === "/login") return <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-black dark:text-zinc-50">{children}</div>;
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-black dark:text-zinc-50">
@@ -63,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="mt-6 flex flex-col gap-1">
-            {navItems.map((it) => {
+            {items.map((it) => {
               const active = pathname === it.href || (it.href !== "/dashboard" && pathname?.startsWith(it.href));
               const Icon = it.icon;
               return (
@@ -90,11 +94,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="truncate">{user.name}</span>
               </div>
               <div className="mt-1 truncate">角色：{user.role}</div>
-              <div className="mt-2">
-                <Link className="text-zinc-900 underline underline-offset-4 dark:text-zinc-50" href="/settings/access">
-                  切换身份
-                </Link>
-              </div>
+              {mode === "demo" ? (
+                <div className="mt-2">
+                  <Link className="text-zinc-900 underline underline-offset-4 dark:text-zinc-50" href="/settings/access">
+                    切换身份
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <Button
+                    variant="secondary"
+                    className="h-8 w-full"
+                    onClick={() => {
+                      void signOut?.();
+                    }}
+                  >
+                    退出登录
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </aside>
@@ -119,20 +137,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <CircleUser className="h-4 w-4 opacity-70" />
                   <span className="max-w-[160px] truncate">{user.name}</span>
                 </div>
-                <Select value={user.id} onValueChange={setUserId}>
-                  <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="切换身份" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users
-                      .filter((u) => u.active)
-                      .map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name}（{u.role}）
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                {mode === "demo" ? (
+                  <Select value={user.id} onValueChange={setUserId}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="切换身份" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users
+                        .filter((u) => u.active)
+                        .map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.name}（{u.role}）
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      void signOut?.();
+                    }}
+                  >
+                    退出登录
+                  </Button>
+                )}
               </div>
             </div>
           </header>
@@ -143,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-900 dark:bg-zinc-950/80 md:hidden">
         <div className="mx-auto grid max-w-[640px] grid-cols-5 gap-1 px-3 py-2">
-          {navItems.slice(0, 5).map((it) => {
+          {items.slice(0, 5).map((it) => {
             const active = pathname === it.href || (it.href !== "/dashboard" && pathname?.startsWith(it.href));
             const Icon = it.icon;
             return (

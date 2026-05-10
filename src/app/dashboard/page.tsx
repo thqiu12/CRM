@@ -15,6 +15,7 @@ import { DEMO_NOW } from "@/lib/demo-clock";
 import { cn } from "@/lib/utils";
 import { useDemoAccess } from "@/app/providers";
 import { useDemoLeads } from "@/lib/demo-leads";
+import { useDemoTasks } from "@/lib/demo-tasks";
 import type { Lead } from "@/lib/types";
 
 const RechartsBarChart = dynamic(() => import("@/components/charts/recharts-bar"), { ssr: false });
@@ -24,8 +25,9 @@ function fmtJPY(amount: number) {
 }
 
 export default function DashboardPage() {
-  const { user } = useDemoAccess();
+  const { mode, user } = useDemoAccess();
   const { leads } = useDemoLeads(db.leads);
+  const { tasks } = useDemoTasks(db.tasks);
 
   const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, leads), [leads, user]);
   const accessibleLeadIds = React.useMemo(() => new Set(accessibleLeads.map((l) => l.id)), [accessibleLeads]);
@@ -33,21 +35,18 @@ export default function DashboardPage() {
 
   const accessibleTasks = React.useMemo(() => {
     if (user.role === "销售顾问" || user.role === "教务" || user.role === "进学指导" || user.role === "财务") {
-      return db.tasks.filter((t) => t.assigneeId === user.id && (!t.leadId || accessibleLeadIds.has(t.leadId)));
+      return tasks.filter((t) => t.assigneeId === user.id && (!t.leadId || accessibleLeadIds.has(t.leadId)));
     }
 
     if (user.role === "校区负责人") {
       const campusLeadIds = new Set(leads.filter((l) => l.campusId === user.campusId).map((l) => l.id));
-      return db.tasks.filter((t) => !t.leadId || campusLeadIds.has(t.leadId));
+      return tasks.filter((t) => !t.leadId || campusLeadIds.has(t.leadId));
     }
 
-    return db.tasks.filter((t) => !t.leadId || accessibleLeadIds.has(t.leadId));
-  }, [accessibleLeadIds, leads, user]);
+    return tasks.filter((t) => !t.leadId || accessibleLeadIds.has(t.leadId));
+  }, [accessibleLeadIds, leads, tasks, user]);
 
-  const accessibleEnrollments = React.useMemo(
-    () => db.enrollments.filter((e) => accessibleLeadIds.has(e.leadId)),
-    [accessibleLeadIds],
-  );
+  const accessibleEnrollments = React.useMemo(() => (mode === "supabase" ? [] : db.enrollments.filter((e) => accessibleLeadIds.has(e.leadId))), [accessibleLeadIds, mode]);
 
   const kpis = React.useMemo(
     () =>
@@ -69,6 +68,10 @@ export default function DashboardPage() {
   }, [accessibleLeads]);
 
   const campusSignupData = React.useMemo(() => {
+    if (mode === "supabase") {
+      const byCampus = groupBy(accessibleLeads, "campusId");
+      return db.campuses.map((c) => ({ name: c.name, value: byCampus.get(c.id)?.length ?? 0 })).sort((a, b) => b.value - a.value);
+    }
     const leadById = new Map(accessibleLeads.map((l) => [l.id, l]));
     const byCampus = new Map<string, number>();
     for (const e of accessibleEnrollments) {
@@ -76,12 +79,17 @@ export default function DashboardPage() {
       if (!lead) continue;
       byCampus.set(lead.campusId, (byCampus.get(lead.campusId) ?? 0) + 1);
     }
-    return db.campuses
-      .map((c) => ({ name: c.name, value: byCampus.get(c.id) ?? 0 }))
-      .sort((a, b) => b.value - a.value);
-  }, [accessibleEnrollments, accessibleLeads]);
+    return db.campuses.map((c) => ({ name: c.name, value: byCampus.get(c.id) ?? 0 })).sort((a, b) => b.value - a.value);
+  }, [accessibleEnrollments, accessibleLeads, mode]);
 
   const consultantRanking = React.useMemo(() => {
+    if (mode === "supabase") {
+      const byOwner = groupBy(accessibleLeads, "ownerId");
+      return Array.from(byOwner.entries())
+        .map(([ownerId, list]) => ({ name: ownerId, value: list.length }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8);
+    }
     const paidByOwner = new Map<string, number>();
     const ownerMap = new Map<string, string>();
     for (const u of db.users) ownerMap.set(u.id, u.name);
@@ -95,7 +103,7 @@ export default function DashboardPage() {
       .map(([ownerId, value]) => ({ name: ownerMap.get(ownerId) ?? ownerId, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
-  }, [accessibleEnrollments, accessibleLeads]);
+  }, [accessibleEnrollments, accessibleLeads, mode]);
 
   const funnel = React.useMemo(() => getFunnel(accessibleLeads), [accessibleLeads]);
 
@@ -124,8 +132,8 @@ export default function DashboardPage() {
         <KpiCard title="本周新增线索" value={kpis.weekNewLeads} hint="周一 00:00 起" />
         <KpiCard title="今日待跟进" value={kpis.todayDue} hint="到期时间在今日内" tone="warn" />
         <KpiCard title="逾期未跟进" value={kpis.overdue} hint="已超过今天 00:00" tone="danger" />
-        <KpiCard title="本月报名人数" value={kpis.monthSignupCount} hint="按报名时间统计" />
-        <KpiCard title="本月缴费金额" value={fmtJPY(kpis.monthPaid)} hint="按实收金额累计" />
+        <KpiCard title={mode === "supabase" ? "本月报名线索" : "本月报名人数"} value={kpis.monthSignupCount} hint={mode === "supabase" ? "基于线索状态统计" : "按报名时间统计"} />
+        <KpiCard title="本月缴费金额" value={mode === "supabase" ? "—" : fmtJPY(kpis.monthPaid)} hint={mode === "supabase" ? "报名/缴费模块未接入" : "按实收金额累计"} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-12">
@@ -141,8 +149,8 @@ export default function DashboardPage() {
 
         <Card className="lg:col-span-6">
           <CardHeader>
-            <CardTitle>各校区报名情况</CardTitle>
-            <CardDescription>按报名记录归属校区</CardDescription>
+            <CardTitle>{mode === "supabase" ? "各校区线索数量" : "各校区报名情况"}</CardTitle>
+            <CardDescription>{mode === "supabase" ? "按线索归属校区" : "按报名记录归属校区"}</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px]">
             <RechartsBarChart data={campusSignupData} xKey="name" valueKey="value" tooltipLabel="数量" />
@@ -174,20 +182,20 @@ export default function DashboardPage() {
 
         <Card className="lg:col-span-5">
           <CardHeader>
-            <CardTitle>各顾问业绩排行</CardTitle>
-            <CardDescription>按实收金额累计（当前权限范围）</CardDescription>
+            <CardTitle>{mode === "supabase" ? "顾问线索排行" : "各顾问业绩排行"}</CardTitle>
+            <CardDescription>{mode === "supabase" ? "按线索数量统计（当前权限范围）" : "按实收金额累计（当前权限范围）"}</CardDescription>
           </CardHeader>
           <CardContent className="h-[340px]">
             <RechartsBarChart
               data={consultantRanking}
               xKey="value"
               valueKey="value"
-              tooltipLabel="实收金额"
+              tooltipLabel={mode === "supabase" ? "线索数" : "实收金额"}
               layout="vertical"
               yKey="name"
               yWidth={96}
-              xTickFormatter={(v) => `${Math.round(Number(v) / 10000)}万`}
-              tooltipFormatter={(v) => fmtJPY(Number(v))}
+              xTickFormatter={mode === "supabase" ? undefined : (v) => `${Math.round(Number(v) / 10000)}万`}
+              tooltipFormatter={mode === "supabase" ? undefined : (v) => fmtJPY(Number(v))}
               margin={{ left: 6, right: 18, top: 6, bottom: 6 }}
             />
           </CardContent>
@@ -203,7 +211,7 @@ export default function DashboardPage() {
           <TrendingUp className="h-5 w-5 text-zinc-400" />
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2">
-          {pickHighlights({ leadIds: accessibleLeadIds, leadById: accessibleLeadById, now: DEMO_NOW }).map((item) => (
+          {pickHighlights({ leadIds: accessibleLeadIds, leadById: accessibleLeadById, now: DEMO_NOW, tasks: accessibleTasks }).map((item) => (
             <Link
               key={item.id}
               href={item.href}
@@ -244,10 +252,10 @@ function KpiCard(props: { title: string; value: number | string; hint: string; t
   );
 }
 
-function pickHighlights(params: { leadIds: Set<string>; leadById: Map<string, Lead>; now: number }) {
+function pickHighlights(params: { leadIds: Set<string>; leadById: Map<string, Lead>; now: number; tasks: { id: string; leadId?: string; title: string; type: string; dueAt?: string; status: string }[] }) {
   const items: { id: string; href: string; title: string; subtitle: string; badge: string; badgeClass: string; meta: string }[] = [];
 
-  for (const t of db.tasks) {
+  for (const t of params.tasks) {
     if (t.status !== "待处理") continue;
     if (t.leadId && !params.leadIds.has(t.leadId)) continue;
     const lead = t.leadId ? params.leadById.get(t.leadId) : undefined;

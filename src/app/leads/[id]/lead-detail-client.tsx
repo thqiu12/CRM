@@ -18,6 +18,7 @@ import { DEMO_NOW } from "@/lib/demo-clock";
 import type { CustomerLevel, FollowUp, FollowUpMethod, Lead, LeadStatus } from "@/lib/types";
 import { useDemoAccess } from "@/app/providers";
 import { useDemoLeads } from "@/lib/demo-leads";
+import { useDemoFollowUps } from "@/lib/demo-followups";
 
 const followUpMethods: FollowUpMethod[] = ["微信", "电话", "语音", "视频", "面谈"];
 const levels: CustomerLevel[] = ["A", "B", "C", "D"];
@@ -49,12 +50,22 @@ function fmtJPY(amount: number) {
 
 export default function LeadDetailClient({ leadId }: { leadId: string }) {
   const { user } = useDemoAccess();
-  const { leads, upsertLead } = useDemoLeads(db.leads);
+  const { leads, upsertLead, findByWechat } = useDemoLeads(db.leads);
 
   const [lead, setLead] = React.useState<Lead | null>(() => leads.find((l) => l.id === leadId) ?? null);
   const hasAccess = React.useMemo(() => (lead ? canViewLead({ user }, lead) : false), [lead, user]);
+  const { followUps, createFollowUp } = useDemoFollowUps(leadId, db.followUps.filter((f) => f.leadId === leadId));
 
-  const [followUps, setFollowUps] = React.useState(() => db.followUps.filter((f) => f.leadId === leadId));
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editStudentName, setEditStudentName] = React.useState("");
+  const [editWechat, setEditWechat] = React.useState("");
+  const [editPhone, setEditPhone] = React.useState("");
+  const [editEmail, setEditEmail] = React.useState("");
+  const [editStatus, setEditStatus] = React.useState<LeadStatus>("新线索");
+  const [editLevel, setEditLevel] = React.useState<CustomerLevel>("B");
+  const [editNextFollowUpAt, setEditNextFollowUpAt] = React.useState("");
+  const [editNotes, setEditNotes] = React.useState("");
+  const [editError, setEditError] = React.useState("");
 
   const enrollment = React.useMemo(() => db.enrollments.find((e) => e.leadId === leadId), [leadId]);
   const enrollmentPayments = React.useMemo(() => db.payments.filter((p) => p.enrollmentId === enrollment?.id), [enrollment?.id]);
@@ -136,10 +147,144 @@ export default function LeadDetailClient({ leadId }: { leadId: string }) {
               下次跟进：{fmtDateTime(lead.nextFollowUpAt)}
             </Badge>
           ) : null}
+          <Dialog
+            open={editOpen}
+            onOpenChange={(v) => {
+              setEditOpen(v);
+              if (!v) return;
+              setEditError("");
+              setEditStudentName(lead.studentName);
+              setEditWechat(lead.wechat ?? "");
+              setEditPhone(lead.phone ?? "");
+              setEditEmail(lead.email ?? "");
+              setEditStatus(lead.status);
+              setEditLevel(lead.customerLevel);
+              setEditNextFollowUpAt(lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt).toISOString().slice(0, 16) : "");
+              setEditNotes(lead.notes ?? "");
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button variant="secondary">编辑线索</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>编辑线索</DialogTitle>
+                <DialogDescription>修改后会立即保存并同步到列表/看板</DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-4 grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">学生姓名</div>
+                    <Input value={editStudentName} onChange={(e) => setEditStudentName(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">微信号</div>
+                    <Input value={editWechat} onChange={(e) => setEditWechat(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">手机</div>
+                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">邮箱</div>
+                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">状态</div>
+                    <Select value={editStatus} onValueChange={(v) => setEditStatus(v as LeadStatus)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statuses.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium">客户等级</div>
+                    <Select value={editLevel} onValueChange={(v) => setEditLevel(v as CustomerLevel)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {levels.map((l) => (
+                          <SelectItem key={l} value={l}>
+                            {l}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">下次跟进时间</div>
+                  <Input type="datetime-local" value={editNextFollowUpAt} onChange={(e) => setEditNextFollowUpAt(e.target.value)} />
+                </div>
+
+                <div className="grid gap-2">
+                  <div className="text-sm font-medium">备注</div>
+                  <textarea
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="min-h-[92px] w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-950/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:ring-zinc-50/10"
+                  />
+                </div>
+
+                {editError ? <div className="text-sm text-rose-700 dark:text-rose-400">{editError}</div> : null}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditOpen(false)}>
+                  取消
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditError("");
+                    const w = editWechat.trim();
+                    if (w) {
+                      const dup = findByWechat(w);
+                      if (dup && dup.id !== lead.id) {
+                        setEditError(`微信号已存在：${dup.studentName}（${dup.id}）`);
+                        return;
+                      }
+                    }
+                    const updated: Lead = {
+                      ...lead,
+                      studentName: editStudentName.trim() || "未命名",
+                      wechat: w || undefined,
+                      phone: editPhone.trim() || undefined,
+                      email: editEmail.trim() || undefined,
+                      status: editStatus,
+                      customerLevel: editLevel,
+                      nextFollowUpAt: editNextFollowUpAt ? new Date(editNextFollowUpAt).toISOString() : undefined,
+                      notes: editNotes.trim() || "",
+                      updatedAt: new Date().toISOString(),
+                    };
+                    upsertLead(updated);
+                    setLead(updated);
+                    setEditOpen(false);
+                  }}
+                >
+                  保存
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <AddFollowUpDialog
             lead={lead}
             onCreate={(created) => {
-              setFollowUps((prev) => [created, ...prev]);
+              void createFollowUp(created);
               setLead((prev) => {
                 if (!prev) return prev;
                 const next = {
@@ -451,7 +596,7 @@ function AddFollowUpDialog({
   const submit = () => {
     const now = new Date().toISOString();
     const created: FollowUp = {
-      id: `fu-${Math.random().toString(16).slice(2)}`,
+      id: crypto.randomUUID(),
       leadId: lead.id,
       followUpAt: now,
       method,

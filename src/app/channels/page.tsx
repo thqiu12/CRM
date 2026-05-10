@@ -35,12 +35,12 @@ const channelCostsJPY: Record<string, number> = {
 };
 
 export default function ChannelsPage() {
-  const { user } = useDemoAccess();
+  const { mode, user } = useDemoAccess();
   const { leads: allLeads } = useDemoLeads(db.leads);
 
   const leads = React.useMemo(() => filterLeadsByAccess({ user }, allLeads), [allLeads, user]);
   const leadById = React.useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads]);
-  const enrollments = React.useMemo(() => db.enrollments.filter((e) => leadById.has(e.leadId)), [leadById]);
+  const enrollments = React.useMemo(() => (mode === "supabase" ? [] : db.enrollments.filter((e) => leadById.has(e.leadId))), [leadById, mode]);
 
   const channelStats = React.useMemo(() => {
     const stat = new Map<
@@ -106,7 +106,9 @@ export default function ChannelsPage() {
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">渠道统计</h1>
-          <div className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">线索规模、转化与 ROI（Demo：成本为模拟数据）</div>
+          <div className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            {mode === "supabase" ? "线索规模与转化（报名/缴费模块未接入）" : "线索规模、转化与 ROI（Demo：成本为模拟数据）"}
+          </div>
         </div>
         <Badge className="w-fit border-transparent bg-zinc-900/5 text-zinc-700 dark:bg-zinc-50/10 dark:text-zinc-200">
           当前视图：{user.role}
@@ -152,10 +154,10 @@ export default function ChannelsPage() {
                     <TableCell>{c.valid}</TableCell>
                     <TableCell>{c.trial}</TableCell>
                     <TableCell>{c.signup}</TableCell>
-                    <TableCell>{fmtJPY(c.paid)}</TableCell>
+                    <TableCell>{mode === "supabase" ? "—" : fmtJPY(c.paid)}</TableCell>
                     <TableCell>{Math.round(c.conversion * 100)}%</TableCell>
                     <TableCell>{fmtJPY(c.cost)}（CPA {fmtJPY(c.cpa)}）</TableCell>
-                    <TableCell>{c.roi >= 999 ? "—" : c.roi.toFixed(2)}</TableCell>
+                    <TableCell>{mode === "supabase" ? "—" : c.roi >= 999 ? "—" : c.roi.toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
                 {channelStats.length === 0 ? (

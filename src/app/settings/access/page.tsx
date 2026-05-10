@@ -14,18 +14,8 @@ import { useDemoAccess } from "@/app/providers";
 const roles: Role[] = ["超级管理员", "校区负责人", "销售顾问", "市场人员", "教务", "进学指导", "财务"];
 
 export default function AccessSettingsPage() {
-  const { user, setRole, setUserId } = useDemoAccess();
+  const { mode, user, setRole, setUserId } = useDemoAccess();
   const campusName = campuses.find((c) => c.id === user.campusId)?.name ?? user.campusId;
-
-  const roleExplanation: Record<Role, string> = {
-    超级管理员: "查看全部数据与所有模块（Demo 中用于演示全量视图）。",
-    校区负责人: "仅查看本校区数据与业绩。",
-    销售顾问: "仅查看自己负责的客户线索；可以新增跟进与推进状态。",
-    市场人员: "仅查看自己渠道来源的线索与渠道统计。",
-    教务: "仅查看已报名/服务中学生；推进交接与分班。",
-    进学指导: "仅查看负责学生（Demo 简化为已报名/服务中可见）。",
-    财务: "仅查看与缴费相关的学生与付款状态。",
-  };
 
   const roleUsers = React.useMemo(() => {
     const map = new Map<Role, typeof users>();
@@ -37,6 +27,30 @@ export default function AccessSettingsPage() {
     }
     return map;
   }, []);
+
+  if (mode === "supabase") {
+    return (
+      <div className="space-y-4 pb-20 md:pb-0">
+        <h1 className="text-2xl font-semibold tracking-tight">权限与身份</h1>
+        <Card>
+          <CardHeader>
+            <CardTitle>已启用 Supabase 登录</CardTitle>
+            <CardDescription>当前身份由登录账号决定；请在 Supabase 的 profiles 表中维护 role/campus_id/channel_ids 等字段</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  const roleExplanation: Record<Role, string> = {
+    超级管理员: "查看全部数据与所有模块（Demo 中用于演示全量视图）。",
+    校区负责人: "仅查看本校区数据与业绩。",
+    销售顾问: "仅查看自己负责的客户线索；可以新增跟进与推进状态。",
+    市场人员: "仅查看自己渠道来源的线索与渠道统计。",
+    教务: "仅查看已报名/服务中学生；推进交接与分班。",
+    进学指导: "仅查看负责学生（Demo 简化为已报名/服务中可见）。",
+    财务: "仅查看与缴费相关的学生与付款状态。",
+  };
 
   return (
     <div className="space-y-4 pb-20 md:pb-0">

@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useDemoAccess } from "@/app/providers";
 import type { TaskType } from "@/lib/types";
 import { useDemoLeads } from "@/lib/demo-leads";
+import { useDemoTasks } from "@/lib/demo-tasks";
 
 const taskTypes: TaskType[] = [
   "今日待跟进",
@@ -32,16 +33,17 @@ const taskTypes: TaskType[] = [
 export default function TasksPage() {
   const { user } = useDemoAccess();
   const { leads } = useDemoLeads(db.leads);
+  const { tasks, markDone } = useDemoTasks(db.tasks);
   const accessibleLeads = React.useMemo(() => filterLeadsByAccess({ user }, leads), [leads, user]);
   const accessibleLeadIds = React.useMemo(() => new Set(accessibleLeads.map((l) => l.id)), [accessibleLeads]);
   const accessibleLeadById = React.useMemo(() => new Map(accessibleLeads.map((l) => [l.id, l])), [accessibleLeads]);
 
   const scopedTasks = React.useMemo(() => {
     if (user.role === "销售顾问" || user.role === "教务" || user.role === "进学指导" || user.role === "财务") {
-      return db.tasks.filter((t) => t.assigneeId === user.id && (!t.leadId || accessibleLeadIds.has(t.leadId)));
+      return tasks.filter((t) => t.assigneeId === user.id && (!t.leadId || accessibleLeadIds.has(t.leadId)));
     }
-    return db.tasks.filter((t) => !t.leadId || accessibleLeadIds.has(t.leadId));
-  }, [accessibleLeadIds, user]);
+    return tasks.filter((t) => !t.leadId || accessibleLeadIds.has(t.leadId));
+  }, [accessibleLeadIds, tasks, user]);
 
   const [view, setView] = React.useState<"today" | "overdue" | "all">("today");
   const [type, setType] = React.useState<string>("all");
@@ -161,9 +163,14 @@ export default function TasksPage() {
                       </Link>
                     </Button>
                   ) : null}
-                  <Button variant="secondary">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      markDone(t.id);
+                    }}
+                  >
                     <CheckCircle2 className="h-4 w-4" />
-                    标记完成（Demo）
+                    标记完成
                   </Button>
                 </div>
               </CardContent>
